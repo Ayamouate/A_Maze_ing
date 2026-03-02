@@ -10,7 +10,8 @@ class MazeConfig(BaseModel):
     exit: tuple[int, int]
     output_file: str
     perfect: bool
-    seed : Optional[int] = None
+    seed: Optional[int] = None
+    algo: Optional[str] = "DFS"
 
     @field_validator("entry", "exit", mode="before")
     @classmethod
@@ -18,10 +19,13 @@ class MazeConfig(BaseModel):
         """Convert string 'x,y' to tuple of integers if needed."""
         if isinstance(value, str):
             try:
-                x, y = value.split(",")
+                parts = value.split(",")
+                if len(parts) != 2:
+                    raise ValueError("Coordinates must be in format 'x,y'")
+                x, y = parts
                 return int(x.strip()), int(y.strip())
             except ValueError:
-                raise ValueError("Coordinates must be in format 'x,y'")
+                raise ValueError("Coordinates must be 'x,y' with integers")
         return value
 
     @model_validator(mode="after")
@@ -36,6 +40,16 @@ class MazeConfig(BaseModel):
             raise ValueError(f"Exit {self.exit} is out of bounds")
         if self.entry == self.exit:
             raise ValueError("Entry and exit cannot be the same")
+
+        # Validate entry is on border
+        if not (x1 == 0 or x1 == self.width - 1
+                or y1 == 0 or y1 == self.height - 1):
+            raise ValueError(f"Entry {self.entry} must be on the maze border")
+        # Validate exit is on border
+        if not (x2 == 0 or x2 == self.width - 1
+                or y2 == 0 or y2 == self.height - 1):
+            raise ValueError(f"Exit {self.exit} must be on the maze border")
+
         return self
 
     def as_dict(self) -> dict[str, Any]:
@@ -45,8 +59,9 @@ class MazeConfig(BaseModel):
 
 class ConfigReader:
     """Read and parse maze configuration from a file."""
-    REQUIRED_KEYS = {"width", "height", "entry", "exit", "output_file", "perfect"}
-    OPTIONAL_KEYS = {"seed"}
+    REQ_KEYS = {"width", "height", "entry", "exit", "output_file", "perfect"}
+    OPT_KEYS = {"seed", "algo"}
+    ALL_KEYS = REQ_KEYS | OPT_KEYS
 
     def __init__(self, path: str) -> None:
         """Store file path."""
@@ -64,35 +79,63 @@ class ConfigReader:
                         continue
 
                     if "=" not in line:
-                        raise ValueError(f"Invalid line: '{line}' (missing '=')")
+                        raise ValueError(f"Invalid line: '{line}' (need '=')")
 
                     key, value = line.split("=", 1)
                     key = key.strip().lower()
                     value = value.strip()
 
+                    # Check for unknown keys
+                    if key not in self.ALL_KEYS:
+                        raise ValueError(f"Unknown key: '{key}'")
+
+                    # Check for empty value
+                    if not value:
+                        raise ValueError(f"Empty value for key: '{key}'")
+
                     if key in data:
-                        raise ValueError(f"Duplicate key: {key}")
+                        raise ValueError(f"Duplicate key: '{key}'")
 
                     data[key] = value
         except FileNotFoundError:
             raise ValueError(f"Config file not found: {self.path}")
 
         # Check required keys
-        missing = self.REQUIRED_KEYS - data.keys()
+        missing = self.REQ_KEYS - data.keys()
         if missing:
             raise ValueError(f"Missing required keys: {missing}")
 
-        # Convert types
-        data["width"] = int(data["width"])
-        data["height"] = int(data["height"])
+        # Convert width
+        try:
+            data["width"] = int(data["width"])
+        except ValueError:
+            raise ValueError(f"Invalid width: '{data['width']}' must be int")
+
+        # Convert height
+        try:
+            data["height"] = int(data["height"])
+        except ValueError:
+            raise ValueError(f"Invalid height: '{data['height']}' must be int")
+
+        # Convert perfect (must be "true" or "false")
+        if data["perfect"].lower() not in ("true", "false"):
+            raise ValueError(f"Invalid perfect:'{data['perfect']}' true/false")
         data["perfect"] = data["perfect"].lower() == "true"
 
         # Handle optional seed
         if "seed" in data and data["seed"]:
-            data["seed"] = int(data["seed"])
+            try:
+                data["seed"] = int(data["seed"])
+            except ValueError:
+                raise ValueError(f"Invalid seed: '{data['seed']}' must be int")
         else:
             data["seed"] = None
 
+        # Handle optional algo
+        if "algo" in data:
+            if data["algo"].upper() not in ("DFS", "PRIM"):
+                raise ValueError(f"Invalid algo: '{data['algo']}' ('DFS/PRIM)")
+            data["algo"] = data["algo"].upper()
         return data
 
 
@@ -104,5 +147,8 @@ def load_config(path: str) -> MazeConfig:
 
 
 if __name__ == "__main__":
-    config = load_config("config.txt")
-    print(config.as_dict())
+    try:
+        config = load_config("config.txt")
+        print(config.as_dict())
+    except ValueError as e:
+        print(f"Error: {e}")

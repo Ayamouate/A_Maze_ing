@@ -1,7 +1,7 @@
 # the cell is 0 or 1 so i can tell the
 # config = function of parsing to dict
 import random
-from typing import Any
+from typing import Any, List
 
 
 n, e, s, w = 1, 2, 4, 8
@@ -28,6 +28,9 @@ class Maze:
         ex, ey = self.entry
         self.visited[ey][ex] = 1
 
+    def grid(self):
+        return self.grid
+
     def find_unvisited_neighbors(self, x, y):
         neighbors = []
 
@@ -41,7 +44,7 @@ class Maze:
             neighbors.append((x, y+1, s, os))
         return neighbors
 
-    def dfs_algo(self) -> list:
+    def dfs_algo(self):
         stack = [self.entry]  # to store cells and pop if cell is 0 or visited
 
         while stack:
@@ -55,22 +58,8 @@ class Maze:
                 stack.append((nx, ny))
             else:
                 stack.pop()
-        return self.grid
 
     # apply_42_pattern()
-    def can_remove_wall(self, x, y, nx, ny):
-        # define the 3x3 square centered around the target cell
-        for dy in range(-1, 2):
-            for dx in range(-1, 2):
-                cx, cy = nx + dx, ny + dy
-                if 0 <= cx < self.width and 0 <= cy < self.height:
-                    # count how many walls remain in this 3x3 area
-                    walls = self.grid[cy][cx]
-                    # if this cell has no walls at all, we skip removing
-                    if walls == 0:
-                        return False
-        return True
-
     def add_loops(self) -> None:
         num_walls = (self.width * self.height) // 5
 
@@ -92,11 +81,12 @@ class Maze:
                     self.grid[y][x] &= ~direction
                     self.grid[ny][nx] &= ~opposite
 
-    def choose_maze_algo(self, perfect: bool) -> None:
+    def choose_maze_algo(self, perfect: bool) -> List:
         self.dfs_algo()   # ALWAYS generate base maze
 
         if not perfect:
             self.add_loops()  # only if its False
+        return self.grid
 
     def print_maze(self) -> None:
         height = len(self.grid)
@@ -126,6 +116,6 @@ class Maze:
         print("+" + "---+"*width)
 
 
-maze = Maze(20, 15, (5, 1), (19, 14), seed=42)
+maze = Maze(20, 15, (5, 1), (19, 14), seed=0)
 maze.choose_maze_algo(perfect=False)  # build imperfect maze
-maze.print_maze()   
+maze.print_maze()                      # print it

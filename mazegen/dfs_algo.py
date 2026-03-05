@@ -96,7 +96,7 @@ class Maze:
                 self.remove_walls()
             return self.grid
         except ValueError as e:
-            print(e)
+            print(f"Error: {e}")
             return self.grid
 
     def print_maze(self, path_coords: list = None) -> None:

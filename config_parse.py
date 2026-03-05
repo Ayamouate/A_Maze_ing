@@ -4,8 +4,8 @@ from typing import Optional, Any
 
 class MazeConfig(BaseModel):
     """Maze configuration validator using Pydantic."""
-    width: int = Field(..., gt=10, lt=100)
-    height: int = Field(..., gt=10, lt=100)
+    width: int = Field(..., gt=2, lt=100)
+    height: int = Field(..., gt=2, lt=100)
     entry: tuple[int, int]
     exit: tuple[int, int]
     output_file: str
@@ -40,15 +40,6 @@ class MazeConfig(BaseModel):
             raise ValueError(f"Exit {self.exit} is out of bounds")
         if self.entry == self.exit:
             raise ValueError("Entry and exit cannot be the same")
-
-        # Validate entry is on border
-        if not (x1 == 0 or x1 == self.width - 1
-                or y1 == 0 or y1 == self.height - 1):
-            raise ValueError(f"Entry {self.entry} must be on the maze border")
-        # Validate exit is on border
-        if not (x2 == 0 or x2 == self.width - 1
-                or y2 == 0 or y2 == self.height - 1):
-            raise ValueError(f"Exit {self.exit} must be on the maze border")
 
         return self
 

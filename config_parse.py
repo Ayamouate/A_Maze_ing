@@ -4,8 +4,8 @@ from typing import Optional, Any
 
 class MazeConfig(BaseModel):
     """Maze configuration validator using Pydantic."""
-    width: int = Field(..., gt=2, lt=100)
-    height: int = Field(..., gt=2, lt=100)
+    width: int = Field(..., gt=10, lt=100)
+    height: int = Field(..., gt=10, lt=100)
     entry: tuple[int, int]
     exit: tuple[int, int]
     output_file: str

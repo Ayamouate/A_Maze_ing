@@ -1,11 +1,15 @@
 """Output file module for maze serialization."""
 
 from typing import Any, List
+from collections import deque
 
-try:
-    from mazegen import dfs_algo
-except ImportError:
-    import dfs_algo  # type: ignore
+# try:
+#     from mazegen import dfs_algo
+# except ImportError:
+#     import dfs_algo  # type: ignore
+
+# Direction constants
+N, E, S, W = 1, 2, 4, 8
 
 
 class MazeInfo:
@@ -69,18 +73,44 @@ class MazeInfo:
             file.write(path + "\n")
 
 
-def main():
-    maze = dfs_algo.Maze(20, 15, (5, 1), (19, 14), seed=0)
-    grid = maze.choose_maze_algo(perfect=False)
+def find_shortest_path(grid: List[List[int]],
+                       entry: tuple, exit_pos: tuple) -> str:
+    """Find shortest path from entry to exit using BFS."""
+    height = len(grid)
+    width = len(grid[0]) if grid else 0
 
-    serializer = MazeInfo(grid, "output.txt")
-    serializer.print_to_file(
-        entry=maze.entry,
-        exit_pos=maze.exit,
-        path="NESW"  # placeholder for now
-    )
-    print("Maze written to output.txt")
+    queue = deque([(entry[0], entry[1], "")])
+    visited = {entry}
 
+    # Direction mappings: (dx, dy, wall_bit, letter)
+    directions = [
+        (0, -1, N, 'N'),  # North: y-1
+        (1, 0, E, 'E'),   # East: x+1
+        (0, 1, S, 'S'),   # South: y+1
+        (-1, 0, W, 'W'),  # West: x-1
+    ]
 
-if __name__ == "__main__":
-    main()
+    while queue:
+        x, y, path = queue.popleft()
+
+        if (x, y) == exit_pos:
+            return path
+
+        cell = grid[y][x]
+
+        for dx, dy, wall_bit, letter in directions:
+            nx, ny = x + dx, y + dy
+
+            # Check bounds
+            if not (0 <= nx < width and 0 <= ny < height):
+                continue
+
+            # Check if wall is open (bit is 0)
+            if cell & wall_bit:
+                continue  # Wall is closed
+
+            if (nx, ny) not in visited:
+                visited.add((nx, ny))
+                queue.append((nx, ny, path + letter))
+
+    return ""  # No path found

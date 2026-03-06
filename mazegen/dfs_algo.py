@@ -8,7 +8,7 @@ on, oe, os, ow = s, w, n, e
 
 class Maze:
     def __init__(self, width: int, height: int,
-                 entry: tuple, exit: tuple, seed: Any):
+                 entry: tuple[int, int], exit: tuple[int, int], seed: Any):
         self.grid = []  # store the cells
         self.width = width
         self.height = height
@@ -28,8 +28,9 @@ class Maze:
         if self.width >= 10 and self.height >= 10:
             self.make_42_patern()
 
-    def find_unvisited_neighbors(self, x, y):
-        neighbors = []
+    def find_unvisited_neighbors(self, x: int,
+                                 y: int) -> list[tuple[int, int, int, int]]:
+        neighbors: list[tuple[int, int, int, int]] = []
 
         if x > 0 and self.visited[y][x-1] == 0:  # left
             neighbors.append((x-1, y, w, ow))
@@ -41,7 +42,7 @@ class Maze:
             neighbors.append((x, y+1, s, os))
         return neighbors
 
-    def make_42_patern(self):
+    def make_42_patern(self) -> None:
         w_42 = int((self.width - 7) / 2)
         h_42 = int((self.height - 5) / 2)
         lst = [
@@ -53,7 +54,7 @@ class Maze:
             dx, dy = t
             self.visited[dy + h_42][dx + w_42] = 2
 
-    def dfs_algo(self):
+    def dfs_algo(self) -> None:
         stack = [self.entry]  # to store cells and pop if cell is 0 or visited
         while stack:
             x, y = stack[-1]
@@ -83,7 +84,7 @@ class Maze:
                         self.grid[y][x] = self.grid[y][x] & ~direction
                         self.grid[ny][nx] = self.grid[ny][nx] & ~opposite
 
-    def choose_maze_algo(self, perfect: bool):
+    def choose_maze_algo(self, perfect: bool) -> list[list[int]]:
         try:
             # checking if the entry and exit are outside 42
             ex, ey = self.entry
@@ -99,9 +100,10 @@ class Maze:
             print(f"Error: {e}")
             return self.grid
 
-    def print_maze(self, path_coords: list = None) -> None:
+    def print_maze(self,
+                   path_coords: list[tuple[int, int]] | None = None) -> None:
         """Print maze with optional path display.
-        
+
         Args:
             path_coords: List of (x, y) tuples representing the path.
         """
@@ -112,7 +114,7 @@ class Maze:
                 raise ValueError("Error: cannot create the maze.")
             height = len(self.grid)
             width = len(self.grid[0])
-            
+
             # Convert path to set for O(1) lookup
             path_set = set(path_coords) if path_coords else set()
 
@@ -132,7 +134,7 @@ class Maze:
                     elif (x, y) == self.exit:
                         print(" X ", end="")
                     elif (x, y) in path_set:
-                        print(" * ", end="")
+                        print(" . ", end="")
                     else:
                         print("   ", end="")
 

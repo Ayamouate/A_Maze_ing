@@ -1,14 +1,10 @@
-"""Output file module for maze serialization."""
-
 from typing import Any, List
 from collections import deque
 
-# try:
-#     from mazegen import dfs_algo
-# except ImportError:
-#     import dfs_algo  # type: ignore
 
-# Direction constants
+"""Output file module for maze serialization."""
+
+
 N, E, S, W = 1, 2, 4, 8
 
 
@@ -73,8 +69,8 @@ class MazeInfo:
             file.write(path + "\n")
 
 
-def find_shortest_path(grid: List[List[int]],
-                       entry: tuple, exit_pos: tuple) -> str:
+def find_shortest_path(grid: List[List[int]], entry: tuple[int, int],
+                       exit_pos: tuple[int, int]) -> str:
     """Find shortest path from entry to exit using BFS."""
     height = len(grid)
     width = len(grid[0]) if grid else 0

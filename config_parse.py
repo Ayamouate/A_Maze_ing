@@ -23,10 +23,11 @@ class MazeConfig(BaseModel):
                 if len(parts) != 2:
                     raise ValueError("Coordinates must be in format 'x,y'")
                 x, y = parts
-                return int(x.strip()), int(y.strip())
+                result: tuple[int, int] = (int(x.strip()), int(y.strip()))
+                return result
             except ValueError:
                 raise ValueError("Coordinates must be 'x,y' with integers")
-        return value
+        return tuple(value)
 
     @model_validator(mode="after")
     def validate_positions(self) -> "MazeConfig":
@@ -135,11 +136,3 @@ def load_config(path: str) -> MazeConfig:
     reader = ConfigReader(path)
     data = reader.read()
     return MazeConfig(**data)
-
-
-if __name__ == "__main__":
-    try:
-        config = load_config("config.txt")
-        print(config.as_dict())
-    except ValueError as e:
-        print(f"Error: {e}")

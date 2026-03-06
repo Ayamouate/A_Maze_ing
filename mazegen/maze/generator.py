@@ -1,3 +1,8 @@
+import random
+from typing import List, Tuple, Optional
+from mazegen import dfs_algo as DFSMaze
+
+
 """Maze Generator Module.
 
 Generates maze structure using DFS algorithm.
@@ -8,9 +13,6 @@ Wall encoding (bits):
     Bit 3: West
 """
 
-import random
-from typing import List, Tuple, Optional
-import dfs_algo as DFSMaze
 
 # Direction constants
 N, E, S, W = 1, 2, 4, 8
@@ -80,7 +82,7 @@ class MazeGenerator:
             2D grid with wall configurations.
         """
         # Start from entry point
-        maze = DFSMaze(
+        maze = DFSMaze.Maze(
             self.width,
             self.height,
             self.entry,
@@ -89,4 +91,4 @@ class MazeGenerator:
         )
 
         maze.dfs_algo()
-        return maze.grid
+        return list(maze.grid)

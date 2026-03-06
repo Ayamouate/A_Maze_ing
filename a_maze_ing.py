@@ -1,17 +1,18 @@
-#!/usr/bin/env python3
-"""A-Maze-ing - Main entry point for maze generation.
-
-Usage:
-    python3 a_maze_ing.py              # uses config.txt by default
-    python3 a_maze_ing.py config.txt   # specify config file
-"""
-
 import sys
 import os
 
 from config_parse import load_config, MazeConfig
 from mazegen.dfs_algo import Maze
 from mazegen.serializer import MazeInfo, find_shortest_path
+from mazegen.maze.display import MazeDisplay
+
+
+"""A-Maze-ing - Main entry point for maze generation.
+
+Usage:
+    python3 a_maze_ing.py              # uses config.txt by default
+    python3 a_maze_ing.py config.txt   # specify config file
+"""
 
 
 # Add project root to path
@@ -83,8 +84,14 @@ def generate_maze(config: MazeConfig) -> None:
     print("\nMaze preview (path shown with *):")
     maze.print_maze(path_coords)
 
+    # Launch interactive display
+    print("\nLaunching interactive display...")
+    print("Controls: [p]ath toggle, [c]olor change, [q]uit")
+    display = MazeDisplay(grid, config.entry, config.exit, path_coords)
+    display.run()
 
-def main():
+
+def main() -> None:
     """Main entry point."""
     # Get config file path
     if len(sys.argv) > 1:

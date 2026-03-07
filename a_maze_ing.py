@@ -1,9 +1,10 @@
 import sys
 import os
+import curses
 
-from config_parse import load_config, MazeConfig
-from mazegen.dfs_algo import Maze
-from mazegen.serializer import MazeInfo, find_shortest_path
+from mazegen.maze.config_parse import load_config, MazeConfig
+from mazegen.maze.dfs_algo import Maze
+from mazegen.maze.serializer import MazeInfo, find_shortest_path
 from mazegen.maze.display import MazeDisplay
 
 
@@ -19,11 +20,12 @@ Usage:
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 
-def generate_maze(config: MazeConfig) -> None:
+def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
     """Generate maze based on configuration.
 
     Args:
         config: Validated maze configuration.
+        stdscr: Curses window object.
     """
     print(f"Generating maze {config.width}x{config.height}...")
     print(f"Entry: {config.entry}, Exit: {config.exit}")
@@ -80,19 +82,17 @@ def generate_maze(config: MazeConfig) -> None:
     print(f"Maze written to: {config.output_file}")
     print(f"Shortest path length: {len(path)}")
 
-    # Print ASCII maze with path
-    print("\nMaze preview (path shown with *):")
-    maze.print_maze(path_coords)
-
-    # Launch interactive display
-    print("\nLaunching interactive display...")
-    print("Controls: [p]ath toggle, [c]olor change, [q]uit")
+    # Launch interactive curses display with passed window
     display = MazeDisplay(grid, config.entry, config.exit, path_coords)
-    display.run()
+    display.run_with_window(stdscr)
 
 
-def main() -> None:
-    """Main entry point."""
+def curses_main(stdscr: "curses.window") -> None:
+    """Main curses wrapper function.
+
+    Args:
+        stdscr: Curses window object.
+    """
     # Get config file path
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
@@ -101,17 +101,42 @@ def main() -> None:
 
     # Check if config file exists
     if not os.path.exists(config_file):
+        raise FileNotFoundError(f"Config file not found: {config_file}")
+
+    # Load and validate configuration
+    config = load_config(config_file)
+
+    # Generate maze with curses window
+    generate_maze(config, stdscr)
+
+
+def main() -> None:
+    """Main entry point."""
+    # Get config file path for pre-curses validation
+    if len(sys.argv) > 1:
+        config_file = sys.argv[1]
+    else:
+        config_file = "config.txt"
+
+    # Check if config file exists before starting curses
+    if not os.path.exists(config_file):
         print(f"Error: Config file not found: {config_file}")
         sys.exit(1)
 
     try:
-        # Load and validate configuration
+        # Validate config before entering curses mode
         config = load_config(config_file)
         print(f"Loaded config from: {config_file}")
+        print(f"Generating maze {config.width}x{config.height}...")
+        print(f"Entry: {config.entry}, Exit: {config.exit}")
+        print(f"Algorithm: {config.algo}, Perfect: {config.perfect}")
 
-        # Generate maze
-        generate_maze(config)
+        # Start curses mode
+        curses.wrapper(curses_main)
 
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
     except ValueError as e:
         print(f"Error: {e}")
         sys.exit(1)

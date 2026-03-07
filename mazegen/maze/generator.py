@@ -1,6 +1,6 @@
 import random
 from typing import List, Tuple, Optional
-from mazegen import dfs_algo as DFSMaze
+from mazegen.maze import dfs_algo as DFSMaze
 
 
 """Maze Generator Module.

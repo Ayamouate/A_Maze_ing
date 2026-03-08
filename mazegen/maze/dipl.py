@@ -20,9 +20,8 @@ class MazeDisplay:
     colors: List[int] = [
         curses.COLOR_RED,
         curses.COLOR_GREEN,
-        curses.COLOR_YELLOW,
-        curses.COLOR_BLUE,
         curses.COLOR_MAGENTA,
+        curses.COLOR_BLUE,
         curses.COLOR_CYAN,
     ]
 

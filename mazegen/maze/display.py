@@ -5,14 +5,17 @@ Wall encoding (bits): N=1, E=2, S=4, W=8
 """
 
 import curses
-from typing import List, Tuple
+import random
+from typing import List, Tuple, Optional
+from mazegen.maze.dfs_algo import Maze
+from mazegen.maze.serializer import find_shortest_path
 
 # Wall direction constants
 N, E, S, W = 1, 2, 4, 8
 
 # Layout constants
 OFFSET_Y = 8
-OFFSET_X = 2
+OFFSET_X = 10
 CELL_H = 2
 CELL_W = 4
 
@@ -20,9 +23,20 @@ CELL_W = 4
 class MazeDisplay:
     """Interactive curses-based maze display with path visualization."""
 
+    colors: List[int] = [
+        curses.COLOR_WHITE,
+        curses.COLOR_RED,
+        curses.COLOR_GREEN,
+        curses.COLOR_MAGENTA,
+        curses.COLOR_BLUE,
+        curses.COLOR_CYAN,
+    ]
+
     def __init__(self, grid: List[List[int]], entry: Tuple[int, int],
                  exit_pos: Tuple[int, int],
-                 path: List[Tuple[int, int]] | None = None) -> None:
+                 path: List[Tuple[int, int]] | None = None,
+                 seed: Optional[int] = None,
+                 perfect: bool = False) -> None:
         """Initialize maze display.
 
         Args:
@@ -30,6 +44,8 @@ class MazeDisplay:
             entry: Entry coordinates (x, y).
             exit_pos: Exit coordinates (x, y).
             path: Optional list of (x, y) coordinates for solution path.
+            seed: Random seed for regeneration.
+            perfect: Whether maze is perfect (no loops).
         """
         self.grid = grid
         self.entry = entry
@@ -37,29 +53,41 @@ class MazeDisplay:
         self.path: List[Tuple[int, int]] = path if path else []
         self.path_set: set[Tuple[int, int]] = set(self.path)
         self.show_path = False
-        self.color_index = 1
+        self.color_index = 5  # Start with white (color pair 5)
         self.width = len(grid[0]) if grid else 0
         self.height = len(grid)
+        self.seed = seed
+        self.perfect = perfect
 
     def _init_colors(self) -> None:
         """Initialize curses color pairs."""
         curses.start_color()
         curses.use_default_colors()
-        # Color pairs 1-6: Wall colors (cycle through with 'c')
-        curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_WHITE)
-        curses.init_pair(2, curses.COLOR_RED, curses.COLOR_RED)
-        curses.init_pair(3, curses.COLOR_BLUE, curses.COLOR_BLUE)
+        # Color pairs 1-5: Wall colors (cycle through with 'c')
+        # 1=MAGENTA, 2=BLUE, 3=YELLOW, 4=CYAN, 5=WHITE
+        curses.init_pair(1, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
+        curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_BLUE)
+        curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
         curses.init_pair(4, curses.COLOR_CYAN, curses.COLOR_CYAN)
-        curses.init_pair(5, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
-        curses.init_pair(6, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
-        # Color pair 7: Path (always green)
-        curses.init_pair(7, curses.COLOR_GREEN, curses.COLOR_GREEN)
-        # Color pair 8: Background (black)
-        curses.init_pair(8, curses.COLOR_BLACK, curses.COLOR_BLACK)
-        # Color pair 9: Entry (yellow on yellow)
-        curses.init_pair(9, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
-        # Color pair 10: Exit (red on red)
-        curses.init_pair(10, curses.COLOR_RED, curses.COLOR_RED)
+        curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_WHITE)
+        # Color pairs 11-15: Path colors (opposite of wall)
+        # MAGENTA→YELLOW, BLUE→CYAN, YELLOW→MAGENTA, CYAN→BLUE, WHITE→BLUE
+        curses.init_pair(11, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
+        curses.init_pair(12, curses.COLOR_CYAN, curses.COLOR_CYAN)
+        curses.init_pair(13, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
+        curses.init_pair(14, curses.COLOR_BLUE, curses.COLOR_BLUE)
+        curses.init_pair(15, curses.COLOR_BLUE, curses.COLOR_BLUE)
+        # Color pair 20: Background (black)
+        curses.init_pair(20, curses.COLOR_BLACK, curses.COLOR_BLACK)
+        # Color pair 21: Entry (red on red)
+        curses.init_pair(21, curses.COLOR_RED, curses.COLOR_RED)
+        # Color pair 22: Exit (green on green)
+        curses.init_pair(22, curses.COLOR_GREEN, curses.COLOR_GREEN)
+
+    def _get_path_color_index(self) -> int:
+        """Get the path color index (opposite of current wall color)."""
+        # Wall index 1-5 maps to path index 11-15
+        return self.color_index + 10
 
     def render(self, stdscr: "curses.window") -> None:
         """Draw the entire maze using curses with cell-based rendering.
@@ -71,8 +99,8 @@ class MazeDisplay:
         max_y, max_x = stdscr.getmaxyx()
 
         WALL = curses.color_pair(self.color_index)
-        BG = curses.color_pair(8)
-        PATH = curses.color_pair(7)
+        BG = curses.color_pair(20)
+        PATH = curses.color_pair(self._get_path_color_index())
 
         # Calculate total maze size
         total_maze_h = CELL_H * (self.height + 1)
@@ -98,7 +126,7 @@ class MazeDisplay:
         # Draw info below maze
         info_y = OFFSET_Y + total_maze_h + 1
         self._safe_addstr(stdscr, info_y, OFFSET_X,
-                          "Controls: [p]ath  [c]olor  [q]uit")
+                          "Controls: [p]ath  [c]olor  [r]egenerate  [q]uit")
         path_status = "ON" if self.show_path else "OFF"
         self._safe_addstr(stdscr, info_y + 1, OFFSET_X, f"Path: {path_status}")
 
@@ -120,8 +148,8 @@ class MazeDisplay:
         is_path = self.show_path and (col, row) in self.path_set
         is_entry = (col, row) == self.entry
         is_exit = (col, row) == self.exit
-        ENTRY = curses.color_pair(9)
-        EXIT = curses.color_pair(10)
+        ENTRY = curses.color_pair(21)
+        EXIT = curses.color_pair(22)
 
         # Calculate pixel position (top-left corner of cell)
         py = OFFSET_Y + row * CELL_H
@@ -226,8 +254,51 @@ class MazeDisplay:
         self.show_path = not self.show_path
 
     def change_color(self) -> None:
-        """Cycle through wall colors (1-6)."""
-        self.color_index = (self.color_index % 6) + 1
+        """Cycle through wall colors (1-5)."""
+        self.color_index = (self.color_index % 5) + 1
+
+    def regenerate(self) -> None:
+        """Regenerate the maze with a new random seed."""
+        # Generate new seed
+        new_seed = random.randint(0, 1000000)
+
+        # Create new maze
+        maze = Maze(
+            width=self.width,
+            height=self.height,
+            entry=self.entry,
+            exit=self.exit,
+            seed=new_seed
+        )
+
+        # Generate maze
+        new_grid = maze.choose_maze_algo(perfect=self.perfect)
+
+        if new_grid is not None:
+            self.grid = new_grid
+            self.seed = new_seed
+
+            # Find new path
+            path_str = find_shortest_path(self.grid, self.entry, self.exit)
+
+            # Convert path string to coordinates
+            path_coords: List[Tuple[int, int]] = []
+            if path_str:
+                x, y = self.entry
+                path_coords.append((x, y))
+                for direction in path_str:
+                    if direction == 'N':
+                        y -= 1
+                    elif direction == 'S':
+                        y += 1
+                    elif direction == 'E':
+                        x += 1
+                    elif direction == 'W':
+                        x -= 1
+                    path_coords.append((x, y))
+
+            self.path = path_coords
+            self.path_set = set(path_coords)
 
     def set_path(self, path: List[Tuple[int, int]]) -> None:
         """Set the solution path.
@@ -258,6 +329,8 @@ class MazeDisplay:
                 self.toggle_path()
             elif key == ord('c'):
                 self.change_color()
+            elif key == ord('r'):
+                self.regenerate()
 
     def run(self) -> None:
         """Start the interactive curses display (creates its own window)."""
@@ -283,4 +356,5 @@ class MazeDisplay:
                 self.toggle_path()
             elif key == ord('c'):
                 self.change_color()
-                self.change_color()
+            elif key == ord('r'):
+                self.regenerate()

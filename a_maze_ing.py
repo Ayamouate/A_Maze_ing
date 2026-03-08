@@ -83,7 +83,10 @@ def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
     print(f"Shortest path length: {len(path)}")
 
     # Launch interactive curses display with passed window
-    display = MazeDisplay(grid, config.entry, config.exit, path_coords)
+    display = MazeDisplay(
+        grid, config.entry, config.exit, path_coords,
+        seed=config.seed, perfect=config.perfect
+    )
     display.run_with_window(stdscr)
 
 

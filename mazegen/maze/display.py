@@ -8,14 +8,14 @@ import curses
 import random
 from typing import List, Tuple, Optional
 from mazegen.maze.dfs_algo import Maze
-from mazegen.maze.serializer import find_shortest_path
+from mazegen.maze.serializer import find_shortest_path, MazeInfo
 
 # Wall direction constants
 N, E, S, W = 1, 2, 4, 8
 
 # Layout constants
-OFFSET_Y = 8
-OFFSET_X = 10
+OFFSET_Y = 4
+OFFSET_X = 8
 CELL_H = 2
 CELL_W = 4
 
@@ -36,7 +36,9 @@ class MazeDisplay:
                  exit_pos: Tuple[int, int],
                  path: List[Tuple[int, int]] | None = None,
                  seed: Optional[int] = None,
-                 perfect: bool = False) -> None:
+                 perfect: bool = False,
+                 output_file: Optional[str] = None,
+                 pattern_42: Optional[set[Tuple[int, int]]] = None) -> None:
         """Initialize maze display.
 
         Args:
@@ -46,6 +48,8 @@ class MazeDisplay:
             path: Optional list of (x, y) coordinates for solution path.
             seed: Random seed for regeneration.
             perfect: Whether maze is perfect (no loops).
+            output_file: Output file path for maze data.
+            pattern_42: Set of (x, y) coordinates for 42 pattern cells.
         """
         self.grid = grid
         self.entry = entry
@@ -57,37 +61,73 @@ class MazeDisplay:
         self.width = len(grid[0]) if grid else 0
         self.height = len(grid)
         self.seed = seed
+        self.original_seed = seed  # Track if seed was fixed from config
         self.perfect = perfect
+        self.output_file = output_file
+        self.pattern_42: set[Tuple[int, int]] = (
+            pattern_42 if pattern_42 else set()
+        )
 
     def _init_colors(self) -> None:
         """Initialize curses color pairs."""
         curses.start_color()
         curses.use_default_colors()
-        # Color pairs 1-5: Wall colors (cycle through with 'c')
-        # 1=MAGENTA, 2=BLUE, 3=YELLOW, 4=CYAN, 5=WHITE
+
         curses.init_pair(1, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
         curses.init_pair(2, curses.COLOR_BLUE, curses.COLOR_BLUE)
         curses.init_pair(3, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
         curses.init_pair(4, curses.COLOR_CYAN, curses.COLOR_CYAN)
         curses.init_pair(5, curses.COLOR_WHITE, curses.COLOR_WHITE)
-        # Color pairs 11-15: Path colors (opposite of wall)
-        # MAGENTA→YELLOW, BLUE→CYAN, YELLOW→MAGENTA, CYAN→BLUE, WHITE→BLUE
+
         curses.init_pair(11, curses.COLOR_YELLOW, curses.COLOR_YELLOW)
         curses.init_pair(12, curses.COLOR_CYAN, curses.COLOR_CYAN)
         curses.init_pair(13, curses.COLOR_MAGENTA, curses.COLOR_MAGENTA)
         curses.init_pair(14, curses.COLOR_BLUE, curses.COLOR_BLUE)
         curses.init_pair(15, curses.COLOR_BLUE, curses.COLOR_BLUE)
-        # Color pair 20: Background (black)
+
         curses.init_pair(20, curses.COLOR_BLACK, curses.COLOR_BLACK)
-        # Color pair 21: Entry (red on red)
         curses.init_pair(21, curses.COLOR_RED, curses.COLOR_RED)
-        # Color pair 22: Exit (green on green)
         curses.init_pair(22, curses.COLOR_GREEN, curses.COLOR_GREEN)
+        # Color pair 23: 42 pattern cells (white text on black = gray look)
+        curses.init_pair(23, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        # Color pair 24: Title bar (white text on black background)
+        curses.init_pair(24, curses.COLOR_GREEN, curses.COLOR_BLACK)
 
     def _get_path_color_index(self) -> int:
         """Get the path color index (opposite of current wall color)."""
         # Wall index 1-5 maps to path index 11-15
         return self.color_index + 10
+
+    def draw_title(self, stdscr: "curses.window", width: int) -> None:
+        """Draw the application title bar.
+        Args:
+            stdscr: Curses window object.
+            width: Terminal width.
+        """
+        title = "# MazeGen — By aymouate and ykoia #"
+
+        decoration = [
+            "╔══════════════════════════════════════════════════════╗",
+            "║                                                      ║",
+            "║   ███╗   ███╗ █████╗ ███████╗███████╗ ██████╗        ║",
+            "║   ████╗ ████║██╔══██╗╚══███╔╝██╔════╝██╔════╝        ║",
+            "║   ██╔████╔██║███████║  ███╔╝ █████╗  ██║  ███╗       ║",
+            "║   ██║╚██╔╝██║██╔══██║ ███╔╝  ██╔══╝  ██║   ██║       ║",
+            "║   ██║ ╚═╝ ██║██║  ██║███████╗███████╗╚██████╔╝       ║",
+            "║   ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝        ║",
+            "║                                                      ║",
+            "║        Procedural Maze Generator and Solver          ║",
+            "║                                                      ║",
+            "╚══════════════════════════════════════════════════════╝",
+        ]
+        title_color = curses.color_pair(24)
+        # Center the title
+        title_x = max(0, (width - len(title)) // 2)
+        self._safe_addstr(stdscr, 0, title_x, title, title_color)
+        start_row = 1
+        for i, line in enumerate(decoration):
+            deco_x = max(0, (width - len(line)) // 2)
+            self._safe_addstr(stdscr, start_row + i, deco_x, line, title_color)
 
     def render(self, stdscr: "curses.window") -> None:
         """Draw the entire maze using curses with cell-based rendering.
@@ -106,9 +146,24 @@ class MazeDisplay:
         total_maze_h = CELL_H * (self.height + 1)
         total_maze_w = CELL_W * (self.width + 1)
 
+        # Title height (decoration box is 12 lines + 1 for title)
+        title_height = 13
+
+        # Menu height (6 lines for box + 2 for path status)
+        menu_height = 8
+
+        # Calculate centered offsets
+        total_content_h = title_height + total_maze_h + menu_height
+        total_content_w = max(total_maze_w, 62)  # 62 is menu width
+
+        # Center vertically and horizontally
+        vert_center = (max_y - total_content_h) // 2 + title_height
+        offset_y = max(title_height, vert_center)
+        offset_x = max(0, (max_x - total_content_w) // 2)
+
         # Check terminal size
-        required_height = OFFSET_Y + total_maze_h + 3
-        required_width = OFFSET_X + total_maze_w + 2
+        required_height = total_content_h + 3
+        required_width = total_content_w + 2
 
         if max_y < required_height or max_x < required_width:
             self._safe_addstr(stdscr, 0, 0, "Terminal too small!")
@@ -118,22 +173,46 @@ class MazeDisplay:
             stdscr.refresh()
             return
 
-        # Draw each cell
+        # Draw title bar
+        self.draw_title(stdscr, max_x)
+
+        # Draw each cell with centered offsets
         for row in range(self.height):
             for col in range(self.width):
-                self._draw_cell(stdscr, col, row, WALL, BG, PATH)
+                self._draw_cell(stdscr, col, row, WALL, BG, PATH,
+                                offset_x, offset_y)
 
-        # Draw info below maze
-        info_y = OFFSET_Y + total_maze_h + 1
-        self._safe_addstr(stdscr, info_y, OFFSET_X,
-                          "Controls: [p]ath  [c]olor  [r]egenerate  [q]uit")
+        # Draw info below maze (centered)
+        info_y = offset_y + total_maze_h + 1
+        menu_width = 62
+        menu_x = max(0, (max_x - menu_width) // 2)
+
+        self._safe_addstr(
+            stdscr, info_y, menu_x,
+            "╭──────────────────────────────────────────────────────────╮")
+        self._safe_addstr(
+            stdscr, info_y + 1, menu_x,
+            "│                    ☘ Maze controls ☘                     │")
+        self._safe_addstr(
+            stdscr, info_y + 2, menu_x,
+            "├─────────────────────────────┬────────────────────────────┤")
+        self._safe_addstr(
+            stdscr, info_y + 3, menu_x,
+            "│  [p] Toggle path            │  [r] Regenerate maze       │")
+        self._safe_addstr(
+            stdscr, info_y + 4, menu_x,
+            "│  [c] Change colors          │  [q] Quit                  │")
+        self._safe_addstr(
+            stdscr, info_y + 5, menu_x,
+            "╰─────────────────────────────┴────────────────────────────╯")
         path_status = "ON" if self.show_path else "OFF"
-        self._safe_addstr(stdscr, info_y + 1, OFFSET_X, f"Path: {path_status}")
+        self._safe_addstr(stdscr, info_y + 7, menu_x, f"Path: {path_status}")
 
         stdscr.refresh()
 
     def _draw_cell(self, stdscr: "curses.window", col: int, row: int,
-                   WALL: int, BG: int, PATH: int) -> None:
+                   WALL: int, BG: int, PATH: int,
+                   offset_x: int, offset_y: int) -> None:
         """Draw a single cell with its walls.
 
         Args:
@@ -143,17 +222,21 @@ class MazeDisplay:
             WALL: Wall color pair.
             BG: Background color pair.
             PATH: Path color pair.
+            offset_x: Horizontal offset for centering.
+            offset_y: Vertical offset for centering.
         """
         walls = self.grid[row][col]
         is_path = self.show_path and (col, row) in self.path_set
         is_entry = (col, row) == self.entry
         is_exit = (col, row) == self.exit
+        is_42 = (col, row) in self.pattern_42
         ENTRY = curses.color_pair(21)
         EXIT = curses.color_pair(22)
+        PATTERN_42 = curses.color_pair(23)
 
         # Calculate pixel position (top-left corner of cell)
-        py = OFFSET_Y + row * CELL_H
-        px = OFFSET_X + col * CELL_W
+        py = offset_y + row * CELL_H
+        px = offset_x + col * CELL_W
 
         # Draw North wall or path connection
         if walls & N:
@@ -210,6 +293,9 @@ class MazeDisplay:
             self._safe_addstr(stdscr, center_y, center_x, "  ", ENTRY)
         elif is_exit:
             self._safe_addstr(stdscr, center_y, center_x, "  ", EXIT)
+        elif is_42:
+            self._safe_addstr(stdscr, center_y, center_x, "██",
+                              PATTERN_42 | curses.A_DIM)
         elif is_path:
             self._safe_addstr(stdscr, center_y, center_x, "  ", PATH)
         else:
@@ -218,7 +304,6 @@ class MazeDisplay:
     def _safe_addstr(self, stdscr: "curses.window", y: int, x: int,
                      text: str, attr: int = 0) -> None:
         """Safely add string to curses window, ignoring boundary errors.
-
         Args:
             stdscr: Curses window object.
             y: Row position.
@@ -233,11 +318,9 @@ class MazeDisplay:
 
     def _cell_symbol(self, x: int, y: int) -> str:
         """Return the correct symbol for a cell.
-
         Args:
             x: Column index.
             y: Row index.
-
         Returns:
             E for entry, X for exit, * for path, space for empty.
         """
@@ -259,7 +342,9 @@ class MazeDisplay:
 
     def regenerate(self) -> None:
         """Regenerate the maze with a new random seed."""
-        # Generate new seed
+
+        if self.original_seed is not None:
+            return
         new_seed = random.randint(0, 1000000)
 
         # Create new maze
@@ -277,6 +362,7 @@ class MazeDisplay:
         if new_grid is not None:
             self.grid = new_grid
             self.seed = new_seed
+            self.pattern_42 = maze.get_42_pattern_cells()
 
             # Find new path
             path_str = find_shortest_path(self.grid, self.entry, self.exit)
@@ -300,9 +386,17 @@ class MazeDisplay:
             self.path = path_coords
             self.path_set = set(path_coords)
 
+            # Update output file if specified
+            if self.output_file:
+                serializer = MazeInfo(self.grid, self.output_file)
+                serializer.print_to_file(
+                    entry=self.entry,
+                    exit_pos=self.exit,
+                    path=path_str if path_str else ""
+                )
+
     def set_path(self, path: List[Tuple[int, int]]) -> None:
         """Set the solution path.
-
         Args:
             path: List of (x, y) coordinates.
         """
@@ -311,7 +405,6 @@ class MazeDisplay:
 
     def _main_loop(self, stdscr: "curses.window") -> None:
         """Main curses loop.
-
         Args:
             stdscr: Curses window object.
         """
@@ -322,14 +415,13 @@ class MazeDisplay:
         while True:
             self.render(stdscr)
             key = stdscr.getch()
-
-            if key == ord('q'):
+            if key == ord('q') or key == ord('Q'):
                 break
-            elif key == ord('p'):
+            elif key == ord('p') or key == ord('P'):
                 self.toggle_path()
-            elif key == ord('c'):
+            elif key == ord('c') or key == ord('C'):
                 self.change_color()
-            elif key == ord('r'):
+            elif key == ord('r') or key == ord('R'):
                 self.regenerate()
 
     def run(self) -> None:
@@ -338,7 +430,6 @@ class MazeDisplay:
 
     def run_with_window(self, stdscr: "curses.window") -> None:
         """Run display with an existing curses window.
-
         Args:
             stdscr: Curses window object from wrapper.
         """
@@ -349,12 +440,11 @@ class MazeDisplay:
         while True:
             self.render(stdscr)
             key = stdscr.getch()
-
-            if key == ord('q'):
+            if key == ord('q') or key == ord('Q'):
                 break
-            elif key == ord('p'):
+            elif key == ord('p') or key == ord('P'):
                 self.toggle_path()
-            elif key == ord('c'):
+            elif key == ord('c') or key == ord('C'):
                 self.change_color()
-            elif key == ord('r'):
+            elif key == ord('r') or key == ord('R'):
                 self.regenerate()

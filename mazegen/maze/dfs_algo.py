@@ -99,3 +99,12 @@ class Maze:
         except ValueError as e:
             print(f"Error: {e}")
             return self.grid
+
+    def get_42_pattern_cells(self) -> set[tuple[int, int]]:
+        """Return set of (x, y) coordinates that are part of the 42 pattern."""
+        cells: set[tuple[int, int]] = set()
+        for y in range(self.height):
+            for x in range(self.width):
+                if self.visited[y][x] == 2:
+                    cells.add((x, y))
+        return cells

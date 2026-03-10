@@ -9,7 +9,6 @@ from mazegen.maze.display import MazeDisplay
 
 
 """A-Maze-ing - Main entry point for maze generation.
-
 Usage:
     python3 a_maze_ing.py              # uses config.txt by default
     python3 a_maze_ing.py config.txt   # specify config file
@@ -22,7 +21,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
     """Generate maze based on configuration.
-
     Args:
         config: Validated maze configuration.
         stdscr: Curses window object.
@@ -47,6 +45,9 @@ def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
     if grid is None:
         print("Error: Failed to generate maze")
         sys.exit(1)
+
+    # Get 42 pattern cells
+    pattern_42 = maze.get_42_pattern_cells()
 
     # Find shortest path (returns direction string like "EESSWW")
     path = find_shortest_path(grid, config.entry, config.exit)
@@ -85,28 +86,25 @@ def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
     # Launch interactive curses display with passed window
     display = MazeDisplay(
         grid, config.entry, config.exit, path_coords,
-        seed=config.seed, perfect=config.perfect
+        seed=config.seed, perfect=config.perfect,
+        output_file=config.output_file, pattern_42=pattern_42
     )
     display.run_with_window(stdscr)
 
 
 def curses_main(stdscr: "curses.window") -> None:
     """Main curses wrapper function.
-
     Args:
         stdscr: Curses window object.
     """
-    # Get config file path
     if len(sys.argv) > 1:
         config_file = sys.argv[1]
     else:
         config_file = "config.txt"
 
-    # Check if config file exists
     if not os.path.exists(config_file):
         raise FileNotFoundError(f"Config file not found: {config_file}")
 
-    # Load and validate configuration
     config = load_config(config_file)
 
     # Generate maze with curses window
@@ -120,20 +118,10 @@ def main() -> None:
         config_file = sys.argv[1]
     else:
         config_file = "config.txt"
-
-    # Check if config file exists before starting curses
     if not os.path.exists(config_file):
         print(f"Error: Config file not found: {config_file}")
         sys.exit(1)
-
     try:
-        # Validate config before entering curses mode
-        config = load_config(config_file)
-        print(f"Loaded config from: {config_file}")
-        print(f"Generating maze {config.width}x{config.height}...")
-        print(f"Entry: {config.entry}, Exit: {config.exit}")
-        print(f"Algorithm: {config.algo}, Perfect: {config.perfect}")
-
         # Start curses mode
         curses.wrapper(curses_main)
 

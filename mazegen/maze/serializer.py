@@ -72,9 +72,6 @@ class MazeInfo:
 def find_shortest_path(grid: List[List[int]], entry: tuple[int, int],
                        exit_pos: tuple[int, int]) -> str:
     """Find shortest path from entry to exit using BFS."""
-    height = len(grid)
-    width = len(grid[0]) if grid else 0
-
     queue = deque([(entry[0], entry[1], "")])
     visited = {entry}
 
@@ -96,10 +93,6 @@ def find_shortest_path(grid: List[List[int]], entry: tuple[int, int],
 
         for dx, dy, wall_bit, letter in directions:
             nx, ny = x + dx, y + dy
-
-            # Check bounds
-            if not (0 <= nx < width and 0 <= ny < height):
-                continue
 
             # Check if wall is open (bit is 0)
             if cell & wall_bit:

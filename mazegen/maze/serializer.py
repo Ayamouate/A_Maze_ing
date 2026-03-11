@@ -20,11 +20,13 @@ class MazeInfo:
             grid: 2D list of Cell objects representing the maze.
             file_name: Path to the output file.
         """
+
         self.grid = grid
         self.file_name = file_name
 
     def convert_to_hex(self, nbr: int) -> str:
         """Convert an integer to hexadecimal string."""
+
         if nbr == 0:
             return "0"
         result = ""
@@ -36,11 +38,11 @@ class MazeInfo:
 
     def to_hex(self) -> str:
         """Convert the entire maze grid to hexadecimal format.
-
         Returns:
             Multi-line string with each cell's wall configuration
             as a hexadecimal character.
         """
+
         result = ""
         for row in self.grid:
             line = ""
@@ -59,8 +61,8 @@ class MazeInfo:
             exit_pos: Exit point coordinates as (x, y) tuple.
             path: Solution path string (directional characters).
         """
-        hex_str = self.to_hex()
 
+        hex_str = self.to_hex()
         with open(self.file_name, "w") as file:
             file.write(hex_str)
             file.write("\n")
@@ -102,4 +104,4 @@ def find_shortest_path(grid: List[List[int]], entry: tuple[int, int],
                 visited.add((nx, ny))
                 queue.append((nx, ny, path + letter))
 
-    return ""  # No path found
+    return ""

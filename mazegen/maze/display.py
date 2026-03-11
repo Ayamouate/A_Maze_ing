@@ -13,24 +13,13 @@ from mazegen.maze.serializer import find_shortest_path, MazeInfo
 # Wall direction constants
 N, E, S, W = 1, 2, 4, 8
 
-# Layout constants
-OFFSET_Y = 4
-OFFSET_X = 8
+# Cell dimensions
 CELL_H = 2
 CELL_W = 4
 
 
 class MazeDisplay:
     """Interactive curses-based maze display with path visualization."""
-
-    colors: List[int] = [
-        curses.COLOR_WHITE,
-        curses.COLOR_RED,
-        curses.COLOR_GREEN,
-        curses.COLOR_MAGENTA,
-        curses.COLOR_BLUE,
-        curses.COLOR_CYAN,
-    ]
 
     def __init__(self, grid: List[List[int]], entry: Tuple[int, int],
                  exit_pos: Tuple[int, int],
@@ -316,22 +305,6 @@ class MazeDisplay:
         except curses.error:
             pass
 
-    def _cell_symbol(self, x: int, y: int) -> str:
-        """Return the correct symbol for a cell.
-        Args:
-            x: Column index.
-            y: Row index.
-        Returns:
-            E for entry, X for exit, * for path, space for empty.
-        """
-        if (x, y) == self.entry:
-            return "E"
-        if (x, y) == self.exit:
-            return "X"
-        if self.show_path and (x, y) in self.path_set:
-            return "*"
-        return " "
-
     def toggle_path(self) -> None:
         """Show/hide solution path."""
         self.show_path = not self.show_path
@@ -394,14 +367,6 @@ class MazeDisplay:
                     exit_pos=self.exit,
                     path=path_str if path_str else ""
                 )
-
-    def set_path(self, path: List[Tuple[int, int]]) -> None:
-        """Set the solution path.
-        Args:
-            path: List of (x, y) coordinates.
-        """
-        self.path = path
-        self.path_set = set(path)
 
     def _main_loop(self, stdscr: "curses.window") -> None:
         """Main curses loop.

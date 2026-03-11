@@ -17,6 +17,7 @@ class MazeConfig(BaseModel):
     @classmethod
     def parse_coordinates(cls, value: Any) -> tuple[int, int]:
         """Convert string 'x,y' to tuple of integers if needed."""
+
         if isinstance(value, str):
             try:
                 parts = value.split(",")
@@ -41,7 +42,6 @@ class MazeConfig(BaseModel):
             raise ValueError(f"Exit {self.exit} is out of bounds")
         if self.entry == self.exit:
             raise ValueError("Entry and exit cannot be the same")
-
         return self
 
     def as_dict(self) -> dict[str, Any]:
@@ -97,19 +97,17 @@ class ConfigReader:
         if missing:
             raise ValueError(f"Missing required keys: {missing}")
 
-        # Convert width
+        # Convert
         try:
             data["width"] = int(data["width"])
         except ValueError:
             raise ValueError(f"Invalid width: '{data['width']}' must be int")
 
-        # Convert height
         try:
             data["height"] = int(data["height"])
         except ValueError:
             raise ValueError(f"Invalid height: '{data['height']}' must be int")
 
-        # Convert perfect (must be "true" or "false")
         if data["perfect"].lower() not in ("true", "false"):
             raise ValueError(f"Invalid perfect:'{data['perfect']}' true/false")
         data["perfect"] = data["perfect"].lower() == "true"
@@ -133,6 +131,7 @@ class ConfigReader:
 
 def load_config(path: str) -> MazeConfig:
     """Load and validate config from file."""
+
     reader = ConfigReader(path)
     data = reader.read()
     return MazeConfig(**data)

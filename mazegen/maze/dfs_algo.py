@@ -1,5 +1,5 @@
-<<<<<<< HEAD
-=======
+"""Maze generation algorithms and helpers."""
+
 import random
 from typing import Any
 
@@ -9,8 +9,11 @@ on, oe, os, ow = s, w, n, e
 
 
 class Maze:
+    """Build and carve a maze grid."""
+
     def __init__(self, width: int, height: int, entry: tuple[int, int],
                  exit: tuple[int, int], seed: Any):
+        """Initialize maze state and optional 42 pattern."""
         self.grid = []  # store the cells
         self.width = width
         self.height = height
@@ -35,6 +38,7 @@ class Maze:
 
     def find_unvisited_neighbors(self, x: int,
                                  y: int) -> list[tuple[int, int, int, int]]:
+        """Return unvisited adjacent cells with wall masks."""
         neighbors: list[tuple[int, int, int, int]] = []
 
         if x > 0 and self.visited[y][x-1] == 0:  # left
@@ -48,6 +52,7 @@ class Maze:
         return neighbors
 
     def make_42_patern(self) -> None:
+        """Mark the centered 42 logo cells as protected."""
         w_42 = int((self.width - 7) / 2)
         h_42 = int((self.height - 5) / 2)
         lst = [
@@ -60,6 +65,7 @@ class Maze:
             self.visited[dy + h_42][dx + w_42] = 2
 
     def dfs_algo(self) -> None:
+        """Carve the maze using depth-first search."""
         stack = [self.entry]  # to store cells and pop if cell is 0 or visited
         while stack:
             x, y = stack[-1]
@@ -74,6 +80,7 @@ class Maze:
                 stack.pop()
 
     def remove_walls(self) -> None:  # save borders from removing +
+        """Open extra random walls for a non-perfect maze."""
         num_walls = ((self.width * self.height) // 5) - 4
         for _ in range(num_walls):
             x = random.randint(0, self.width - 1)  # choosing random x, y
@@ -90,6 +97,7 @@ class Maze:
                         self.grid[ny][nx] = self.grid[ny][nx] & ~opposite
 
     def prim_algo(self) -> None:
+        """Carve the maze using randomized Prim's algorithm."""
         # Start with entry cell
         ex, ey = self.entry
         self.visited[ey][ex] = 1
@@ -116,6 +124,7 @@ class Maze:
                         walls.append((nx, ny, nnx, nny, nd, no))
 
     def choose_maze_algo(self, perfect: bool) -> list[list[int]]:
+        """Generate and optionally imperfect the maze."""
         try:
             # checking if the entry and exit are outside 42
             ex, ey = self.entry
@@ -132,11 +141,10 @@ class Maze:
             return self.grid
 
     def get_42_pattern_cells(self) -> set[tuple[int, int]]:
-        """Return set of (x, y) coordinates that are part of the 42 pattern."""
+        """Return all cells that belong to the 42 pattern."""
         cells: set[tuple[int, int]] = set()
         for y in range(self.height):
             for x in range(self.width):
                 if self.visited[y][x] == 2:
                     cells.add((x, y))
         return cells
->>>>>>> a2327bd (commit)

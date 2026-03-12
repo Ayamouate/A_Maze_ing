@@ -6,9 +6,11 @@ Wall encoding (bits): N=1, E=2, S=4, W=8
 
 import curses
 import random
+import time
 from typing import List, Tuple, Optional
 from mazegen.maze.dfs_algo import Maze
 from mazegen.maze.serializer import find_shortest_path, MazeInfo
+
 
 # Wall direction constants
 N, E, S, W = 1, 2, 4, 8
@@ -316,7 +318,30 @@ class MazeDisplay:
         """Cycle through wall colors (1-5)."""
         self.color_index = (self.color_index % 5) + 1
 
-    def regenerate(self) -> None:
+    def _update_path_from_grid(self) -> str:
+        """Recompute shortest path and update cached coordinates."""
+        path_str = find_shortest_path(self.grid, self.entry, self.exit) or ""
+
+        path_coords: List[Tuple[int, int]] = []
+        if path_str:
+            x, y = self.entry
+            path_coords.append((x, y))
+            for direction in path_str:
+                if direction == 'N':
+                    y -= 1
+                elif direction == 'S':
+                    y += 1
+                elif direction == 'E':
+                    x += 1
+                elif direction == 'W':
+                    x -= 1
+                path_coords.append((x, y))
+
+        self.path = path_coords
+        self.path_set = set(path_coords)
+        return path_str
+
+    def regenerate(self, stdscr: Optional["curses.window"] = None) -> None:
         """Regenerate the maze with a new random seed."""
 
         if self.original_seed is not None:
@@ -337,31 +362,17 @@ class MazeDisplay:
         new_grid = maze.choose_maze_algo(perfect=self.perfect)
 
         if new_grid is not None:
-            self.grid = new_grid
+            broken_walls = maze.get_broken_walls()
             self.seed = new_seed
             self.pattern_42 = maze.get_42_pattern_cells()
 
-            # Find new path
-            path_str = find_shortest_path(self.grid, self.entry, self.exit)
+            if stdscr is not None and broken_walls:
+                self.animate_generation(stdscr, broken_walls)
+                self.grid = new_grid
+            else:
+                self.grid = new_grid
 
-            # Convert path string to coordinates
-            path_coords: List[Tuple[int, int]] = []
-            if path_str:
-                x, y = self.entry
-                path_coords.append((x, y))
-                for direction in path_str:
-                    if direction == 'N':
-                        y -= 1
-                    elif direction == 'S':
-                        y += 1
-                    elif direction == 'E':
-                        x += 1
-                    elif direction == 'W':
-                        x -= 1
-                    path_coords.append((x, y))
-
-            self.path = path_coords
-            self.path_set = set(path_coords)
+            path_str = self._update_path_from_grid()
 
             # Update output file if specified
             if self.output_file:
@@ -391,7 +402,7 @@ class MazeDisplay:
             elif key == ord('c') or key == ord('C'):
                 self.change_color()
             elif key == ord('r') or key == ord('R'):
-                self.regenerate()
+                self.regenerate(stdscr)
 
     def run(self) -> None:
         """Start the interactive curses display (creates its own window)."""
@@ -416,4 +427,43 @@ class MazeDisplay:
             elif key == ord('c') or key == ord('C'):
                 self.change_color()
             elif key == ord('r') or key == ord('R'):
-                self.regenerate()
+                self.regenerate(stdscr)
+
+    def animate_generation(
+        self,
+        stdscr: "curses.window",
+        broken_walls: List[Tuple[int, int, int, int]],
+    ) -> None:
+        self.grid = [
+            [15 for _ in range(self.width)]
+            for _ in range(self.height)
+        ]
+
+        frame_dt = 1 / 30  # ~30 FPS smoother than fixed sleep
+        last = time.monotonic()
+
+        for i, (x, y, nx, ny) in enumerate(broken_walls, start=1):
+            if nx == x + 1:      # east
+                self.grid[y][x] &= ~E
+                self.grid[ny][nx] &= ~W
+            elif nx == x - 1:    # west
+                self.grid[y][x] &= ~W
+                self.grid[ny][nx] &= ~E
+            elif ny == y + 1:    # south
+                self.grid[y][x] &= ~S
+                self.grid[ny][nx] &= ~N
+            elif ny == y - 1:    # north
+                self.grid[y][x] &= ~N
+                self.grid[ny][nx] &= ~S
+
+            # Recompute path every few steps (balance speed + visual update)
+            if i % 5 == 0:
+                self._update_path_from_grid()
+
+            self.render(stdscr)
+
+            now = time.monotonic()
+            wait = frame_dt - (now - last)
+            if wait > 0:
+                time.sleep(wait)
+            last = time.monotonic()

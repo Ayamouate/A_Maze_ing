@@ -23,6 +23,7 @@ class Maze:
         self.algo = algo
         self.visited = [[0 for _ in range(self.width)]
                         for _ in range(self.height)]
+        self.broken_walls: list[tuple[int, int, int, int]] = []
         if seed is not None:
             random.seed(seed)
         else:
@@ -75,6 +76,7 @@ class Maze:
                 nx, ny, direction, opposite = random.choice(neighbors)
                 self.grid[y][x] = self.grid[y][x] & ~direction
                 self.grid[ny][nx] = self.grid[ny][nx] & ~opposite
+                self.broken_walls.append((x, y, nx, ny))
                 self.visited[ny][nx] = 1
                 stack.append((nx, ny))
             else:
@@ -117,6 +119,7 @@ class Maze:
                 # Break the wall between current and neighbor
                 self.grid[y][x] = self.grid[y][x] & ~direction
                 self.grid[ny][nx] = self.grid[ny][nx] & ~opposite
+                self.broken_walls.append((x, y, nx, ny))
                 self.visited[ny][nx] = 1
 
                 # Add the neighbors of the neighbor nd= new dir.. no= new oppos
@@ -152,3 +155,7 @@ class Maze:
                 if self.visited[y][x] == 2:
                     cells.add((x, y))
         return cells
+
+    def get_broken_walls(self) -> list[tuple[int, int, int, int]]:
+        """Return ordered wall-break steps for animation."""
+        return list(self.broken_walls)

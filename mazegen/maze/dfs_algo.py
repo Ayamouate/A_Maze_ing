@@ -12,7 +12,7 @@ class Maze:
     """Build and carve a maze grid."""
 
     def __init__(self, width: int, height: int, entry: tuple[int, int],
-                 exit: tuple[int, int], seed: Any):
+                 exit: tuple[int, int], seed: Any, algo: str):
         """Initialize maze state and optional 42 pattern."""
         self.grid = []  # store the cells
         self.width = width
@@ -20,6 +20,7 @@ class Maze:
         self.entry = entry  # tuple (0, 0)
         self.exit = exit  # tuple (19, 14)
         self.seed = seed
+        self.algo = algo
         self.visited = [[0 for _ in range(self.width)]
                         for _ in range(self.height)]
         if seed is not None:
@@ -132,12 +133,15 @@ class Maze:
             if self.visited[ey][ex] == 2 or self.visited[xy][xx] == 2:
                 raise ValueError("Entry and exit coordinates must be"
                                  " outside the 42 pattern!")
-            self.dfs_algo()
+            if self.algo == "DFS":
+                self.dfs_algo()
+            elif self.algo == "PRIM":
+                self.prim_algo()
             if not perfect:
                 self.remove_walls()
             return self.grid
-        except ValueError as e:
-            print(f"Error: {e}")
+        except ValueError as m:
+            print(f"Error: {m}")
             return self.grid
 
     def get_42_pattern_cells(self) -> set[tuple[int, int]]:

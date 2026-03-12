@@ -35,7 +35,8 @@ def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
         height=config.height,
         entry=config.entry,
         exit=config.exit,
-        seed=config.seed
+        seed=config.seed,
+        algo=config.algo if config.algo else "DFS"
     )
 
     # Generate maze
@@ -87,7 +88,8 @@ def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
     display = MazeDisplay(
         grid, config.entry, config.exit, path_coords,
         seed=config.seed, perfect=config.perfect,
-        output_file=config.output_file, pattern_42=pattern_42
+        output_file=config.output_file, pattern_42=pattern_42,
+        algo=config.algo if config.algo else "DFS"
     )
     display.run_with_window(stdscr)
 
@@ -125,6 +127,8 @@ def main() -> None:
         # Start curses mode
         curses.wrapper(curses_main)
 
+    except KeyboardInterrupt:
+        sys.exit(0)
     except FileNotFoundError as e:
         print(f"Error: {e}")
         sys.exit(1)

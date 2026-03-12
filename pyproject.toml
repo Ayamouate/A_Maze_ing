@@ -7,7 +7,7 @@ name = "mazegen"
 version = "1.0.0"
 description = "A maze generator module"
 authors = [{name = "Aya", email = "ayamouate@gmail.com"},
-           {name = "Youssra", email = ""}]
+           {name = "Youssra", email = "youssrakoia@hotmail.com"}]
 readme = "README.md"
 requires-python = ">=3.10"
 

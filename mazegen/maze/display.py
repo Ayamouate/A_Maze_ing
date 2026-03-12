@@ -27,7 +27,8 @@ class MazeDisplay:
                  seed: Optional[int] = None,
                  perfect: bool = False,
                  output_file: Optional[str] = None,
-                 pattern_42: Optional[set[Tuple[int, int]]] = None) -> None:
+                 pattern_42: Optional[set[Tuple[int, int]]] = None,
+                 algo: str = "DFS") -> None:
         """Initialize maze display.
 
         Args:
@@ -39,6 +40,7 @@ class MazeDisplay:
             perfect: Whether maze is perfect (no loops).
             output_file: Output file path for maze data.
             pattern_42: Set of (x, y) coordinates for 42 pattern cells.
+            algo: Maze generation algorithm (DFS or PRIM).
         """
         self.grid = grid
         self.entry = entry
@@ -56,6 +58,7 @@ class MazeDisplay:
         self.pattern_42: set[Tuple[int, int]] = (
             pattern_42 if pattern_42 else set()
         )
+        self.algo = algo
 
     def _init_colors(self) -> None:
         """Initialize curses color pairs."""
@@ -326,7 +329,8 @@ class MazeDisplay:
             height=self.height,
             entry=self.entry,
             exit=self.exit,
-            seed=new_seed
+            seed=new_seed,
+            algo=self.algo
         )
 
         # Generate maze
@@ -380,7 +384,7 @@ class MazeDisplay:
         while True:
             self.render(stdscr)
             key = stdscr.getch()
-            if key == ord('q') or key == ord('Q'):
+            if key in (3, ord('q'), ord('Q')):
                 break
             elif key == ord('p') or key == ord('P'):
                 self.toggle_path()
@@ -405,7 +409,7 @@ class MazeDisplay:
         while True:
             self.render(stdscr)
             key = stdscr.getch()
-            if key == ord('q') or key == ord('Q'):
+            if key in (3, ord('q'), ord('Q')):
                 break
             elif key == ord('p') or key == ord('P'):
                 self.toggle_path()

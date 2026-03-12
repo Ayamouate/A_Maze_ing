@@ -10,7 +10,7 @@ debug:
 	python3 -m pdb a_maze_ing.py
 
 clean:
-	rm -rf __pycache__ .mypy_cache .pytest_cache
+	rm -rf __pycache__ .mypy_cache .pytest_cache dist mazegen.egg-info
 	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
 	find . -type f -name "*.pyc" -delete 2>/dev/null || true
 

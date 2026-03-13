@@ -200,12 +200,15 @@ class MazeDisplay:
             "│  [p] Toggle path            │  [r] Regenerate maze       │")
         self._safe_addstr(
             stdscr, info_y + 4, menu_x,
-            "│  [c] Change colors          │  [q] Quit                  │")
+            "│  [c] Change colors          │  [space] Skip animation    │")
         self._safe_addstr(
             stdscr, info_y + 5, menu_x,
+            "│  [q] Quit                   │                            │")
+        self._safe_addstr(
+            stdscr, info_y + 6, menu_x,
             "╰─────────────────────────────┴────────────────────────────╯")
         path_status = "ON" if self.show_path else "OFF"
-        self._safe_addstr(stdscr, info_y + 7, menu_x, f"Path: {path_status}")
+        self._safe_addstr(stdscr, info_y + 8, menu_x, f"Path: {path_status}")
 
         stdscr.refresh()
 
@@ -397,8 +400,8 @@ class MazeDisplay:
             self.pattern_42 = maze.get_42_pattern_cells()
 
             if stdscr is not None and broken_walls:
-                self.animate_generation(stdscr, broken_walls)
-                self.grid = new_grid
+                self.animate_generation(stdscr, broken_walls,
+                                        final_grid=new_grid)
             else:
                 self.grid = new_grid
 
@@ -416,15 +419,28 @@ class MazeDisplay:
                     path=path_str if path_str else ""
                 )
 
-    def run_with_window(self, stdscr: "curses.window") -> None:
+    def run_with_window(
+        self,
+        stdscr: "curses.window",
+        startup_broken_walls: Optional[List[Tuple[int, int, int, int]]] = None,
+    ) -> None:
         """Run display with an existing curses window.
         Args:
             stdscr: Curses window object from wrapper.
+            startup_broken_walls: Optional wall-break steps for initial
+                generation animation.
         """
         self._init_colors()
         curses.curs_set(0)
         curses.raw()
         stdscr.keypad(True)
+
+        if startup_broken_walls:
+            self.animate_generation(stdscr, startup_broken_walls,
+                                    final_grid=self.grid)
+
+        # Recompute path after animation (animate_generation clears path_set)
+        self._update_path_from_grid()
 
         while True:
             self.render(stdscr)
@@ -435,6 +451,8 @@ class MazeDisplay:
                 break
             elif key == ord('p') or key == ord('P'):
                 self.toggle_path()
+                if self.show_path and self.path:
+                    self._animate_path_reveal(stdscr, self.path)
             elif key == ord('c') or key == ord('C'):
                 self.change_color()
             elif key == ord('r') or key == ord('R'):
@@ -444,8 +462,16 @@ class MazeDisplay:
         self,
         stdscr: "curses.window",
         broken_walls: List[Tuple[int, int, int, int]],
+        final_grid: Optional[List[List[int]]] = None,
     ) -> None:
-        """Animate wall carving with reduced frame flicker."""
+        """Animate wall carving with reduced frame flicker.
+        Args:
+            stdscr: Curses window object.
+            broken_walls: Ordered list of (x, y, nx, ny) wall-break steps.
+            final_grid: The completed maze grid to restore after animation
+                (handles early skip via space key). If None, the partially
+                animated grid is kept as-is.
+        """
         self.grid = [
             [N | E | S | W for _ in range(self.width)]
             for _ in range(self.height)
@@ -456,25 +482,36 @@ class MazeDisplay:
         frame_dt = 1 / 60
         last = time.monotonic()
 
-        for x, y, nx, ny in broken_walls:
-            if nx == x + 1:
-                self.grid[y][x] &= ~E
-                self.grid[ny][nx] &= ~W
-            elif nx == x - 1:
-                self.grid[y][x] &= ~W
-                self.grid[ny][nx] &= ~E
-            elif ny == y + 1:
-                self.grid[y][x] &= ~S
-                self.grid[ny][nx] &= ~N
-            elif ny == y - 1:
-                self.grid[y][x] &= ~N
-                self.grid[ny][nx] &= ~S
+        stdscr.nodelay(True)
+        try:
+            for x, y, nx, ny in broken_walls:
+                key = stdscr.getch()
+                if key == ord(' '):
+                    break
 
-            self.render(stdscr, clear_screen=False)
+                if nx == x + 1:
+                    self.grid[y][x] &= ~E
+                    self.grid[ny][nx] &= ~W
+                elif nx == x - 1:
+                    self.grid[y][x] &= ~W
+                    self.grid[ny][nx] &= ~E
+                elif ny == y + 1:
+                    self.grid[y][x] &= ~S
+                    self.grid[ny][nx] &= ~N
+                elif ny == y - 1:
+                    self.grid[y][x] &= ~N
+                    self.grid[ny][nx] &= ~S
 
-            now = time.monotonic()
-            wait = frame_dt - (now - last)
-            if wait > 0:
-                time.sleep(wait)
-            last = time.monotonic()
+                self.render(stdscr, clear_screen=False)
+
+                now = time.monotonic()
+                wait = frame_dt - (now - last)
+                if wait > 0:
+                    time.sleep(wait)
+                last = time.monotonic()
+        finally:
+            stdscr.nodelay(False)
+            # Always restore the final correct grid so the path is valid
+            if final_grid is not None:
+                self.grid = final_grid
         self.render(stdscr)

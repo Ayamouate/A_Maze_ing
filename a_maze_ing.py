@@ -92,7 +92,9 @@ def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
         output_file=config.output_file, pattern_42=pattern_42,
         algo=config.algo if config.algo else "DFS"
     )
-    display.run_with_window(stdscr)
+
+    broken_walls = maze.get_broken_walls()
+    display.run_with_window(stdscr, startup_broken_walls=broken_walls)
 
 
 def curses_main(stdscr: "curses.window") -> bool:

@@ -129,23 +129,18 @@ class Maze:
 
     def choose_maze_algo(self, perfect: bool) -> list[list[int]]:
         """Generate and optionally imperfect the maze."""
-        try:
-            # checking if the entry and exit are outside 42
-            ex, ey = self.entry
-            xx, xy = self.exit
-            if self.visited[ey][ex] == 2 or self.visited[xy][xx] == 2:
-                raise ValueError("Entry and exit coordinates must be"
-                                 " outside the 42 pattern!")
-            if self.algo == "DFS":
-                self.dfs_algo()
-            elif self.algo == "PRIM":
-                self.prim_algo()
-            if not perfect:
-                self.remove_walls()
-            return self.grid
-        except ValueError as m:
-            print(f"Error: {m}")
-            return self.grid
+        ex, ey = self.entry
+        xx, xy = self.exit
+        if self.visited[ey][ex] == 2 or self.visited[xy][xx] == 2:
+            raise ValueError("Entry and exit coordinates must be"
+                             " outside the 42 pattern!")
+        if self.algo == "DFS":
+            self.dfs_algo()
+        elif self.algo == "PRIM":
+            self.prim_algo()
+        if not perfect:
+            self.remove_walls()
+        return self.grid
 
     def get_42_pattern_cells(self) -> set[tuple[int, int]]:
         """Return all cells that belong to the 42 pattern."""

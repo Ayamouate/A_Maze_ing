@@ -44,10 +44,6 @@ class MazeConfig(BaseModel):
             raise ValueError("Entry and exit cannot be the same")
         return self
 
-    def as_dict(self) -> dict[str, Any]:
-        """Return configuration as dictionary."""
-        return self.model_dump()
-
 
 class ConfigReader:
     """Read and parse maze configuration from a file."""

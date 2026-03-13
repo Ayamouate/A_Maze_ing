@@ -1,11 +1,12 @@
 import sys
 import os
 import curses
+from pydantic import ValidationError
 
-from mazegen.maze.config_parse import load_config, MazeConfig
-from mazegen.maze.dfs_algo import Maze
-from mazegen.maze.serializer import MazeInfo, find_shortest_path
-from mazegen.maze.display import MazeDisplay
+from mazegen.config_parse import load_config, MazeConfig
+from mazegen.dfs_algo import Maze
+from mazegen.serializer import MazeInfo, find_shortest_path
+from mazegen.display import MazeDisplay
 
 
 """A-Maze-ing - Main entry point for maze generation.
@@ -94,7 +95,7 @@ def generate_maze(config: MazeConfig, stdscr: "curses.window") -> None:
     display.run_with_window(stdscr)
 
 
-def curses_main(stdscr: "curses.window") -> None:
+def curses_main(stdscr: "curses.window") -> bool:
     """Main curses wrapper function.
     Args:
         stdscr: Curses window object.
@@ -111,6 +112,7 @@ def curses_main(stdscr: "curses.window") -> None:
 
     # Generate maze with curses window
     generate_maze(config, stdscr)
+    return config.width < 10 or config.height < 10
 
 
 def main() -> None:
@@ -125,12 +127,21 @@ def main() -> None:
         sys.exit(1)
     try:
         # Start curses mode
-        curses.wrapper(curses_main)
+        is_small_for_42 = curses.wrapper(curses_main)
+        if is_small_for_42:
+            print("Error: maze too small for 42 pattern!")
 
     except KeyboardInterrupt:
         sys.exit(0)
     except FileNotFoundError as e:
         print(f"Error: {e}")
+        sys.exit(1)
+    except ValidationError as e:
+        errors = e.errors()
+        if errors:
+            print(f"Error: {errors[0]['msg']}")
+        else:
+            print("Error: Invalid configuration")
         sys.exit(1)
     except ValueError as e:
         print(f"Error: {e}")

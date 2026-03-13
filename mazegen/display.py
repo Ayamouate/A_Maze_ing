@@ -8,8 +8,8 @@ import curses
 import random
 import time
 from typing import List, Tuple, Optional
-from mazegen.maze.dfs_algo import Maze
-from mazegen.maze.serializer import find_shortest_path, MazeInfo
+from mazegen.dfs_algo import Maze
+from mazegen.serializer import find_shortest_path, MazeInfo
 
 
 # Wall direction constants
@@ -123,13 +123,18 @@ class MazeDisplay:
             deco_x = max(0, (width - len(line)) // 2)
             self._safe_addstr(stdscr, start_row + i, deco_x, line, title_color)
 
-    def render(self, stdscr: "curses.window") -> None:
+    def render(
+        self,
+        stdscr: "curses.window",
+        clear_screen: bool = True,
+    ) -> None:
         """Draw the entire maze using curses with cell-based rendering.
 
         Args:
             stdscr: Curses window object.
         """
-        stdscr.clear()
+        if clear_screen:
+            stdscr.clear()
         max_y, max_x = stdscr.getmaxyx()
 
         WALL = curses.color_pair(self.color_index)
@@ -341,6 +346,31 @@ class MazeDisplay:
         self.path_set = set(path_coords)
         return path_str
 
+    def _animate_path_reveal(
+        self,
+        stdscr: "curses.window",
+        full_path: List[Tuple[int, int]],
+    ) -> None:
+        """Reveal the final path progressively, one cell per frame."""
+        if not self.show_path or not full_path:
+            return
+
+        self.path = full_path
+        self.path_set = set()
+
+        frame_dt = 1 / 60
+        last = time.monotonic()
+
+        for coord in full_path:
+            self.path_set.add(coord)
+            self.render(stdscr, clear_screen=False)
+
+            now = time.monotonic()
+            wait = frame_dt - (now - last)
+            if wait > 0:
+                time.sleep(wait)
+            last = time.monotonic()
+
     def regenerate(self, stdscr: Optional["curses.window"] = None) -> None:
         """Regenerate the maze with a new random seed."""
 
@@ -374,6 +404,9 @@ class MazeDisplay:
 
             path_str = self._update_path_from_grid()
 
+            if stdscr is not None and self.path:
+                self._animate_path_reveal(stdscr, self.path)
+
             # Update output file if specified
             if self.output_file:
                 serializer = MazeInfo(self.grid, self.output_file)
@@ -383,31 +416,6 @@ class MazeDisplay:
                     path=path_str if path_str else ""
                 )
 
-    def _main_loop(self, stdscr: "curses.window") -> None:
-        """Main curses loop.
-        Args:
-            stdscr: Curses window object.
-        """
-        self._init_colors()
-        curses.curs_set(0)
-        stdscr.keypad(True)
-
-        while True:
-            self.render(stdscr)
-            key = stdscr.getch()
-            if key in (3, ord('q'), ord('Q')):
-                break
-            elif key == ord('p') or key == ord('P'):
-                self.toggle_path()
-            elif key == ord('c') or key == ord('C'):
-                self.change_color()
-            elif key == ord('r') or key == ord('R'):
-                self.regenerate(stdscr)
-
-    def run(self) -> None:
-        """Start the interactive curses display (creates its own window)."""
-        curses.wrapper(self._main_loop)
-
     def run_with_window(self, stdscr: "curses.window") -> None:
         """Run display with an existing curses window.
         Args:
@@ -415,12 +423,15 @@ class MazeDisplay:
         """
         self._init_colors()
         curses.curs_set(0)
+        curses.raw()
         stdscr.keypad(True)
 
         while True:
             self.render(stdscr)
             key = stdscr.getch()
-            if key in (3, ord('q'), ord('Q')):
+            if key == 3:
+                continue
+            if key == ord('q') or key == ord('Q'):
                 break
             elif key == ord('p') or key == ord('P'):
                 self.toggle_path()
@@ -434,36 +445,36 @@ class MazeDisplay:
         stdscr: "curses.window",
         broken_walls: List[Tuple[int, int, int, int]],
     ) -> None:
+        """Animate wall carving with reduced frame flicker."""
         self.grid = [
-            [15 for _ in range(self.width)]
+            [N | E | S | W for _ in range(self.width)]
             for _ in range(self.height)
         ]
+        self.path = []
+        self.path_set = set()
 
-        frame_dt = 1 / 30  # ~30 FPS smoother than fixed sleep
+        frame_dt = 1 / 60
         last = time.monotonic()
 
-        for i, (x, y, nx, ny) in enumerate(broken_walls, start=1):
-            if nx == x + 1:      # east
+        for x, y, nx, ny in broken_walls:
+            if nx == x + 1:
                 self.grid[y][x] &= ~E
                 self.grid[ny][nx] &= ~W
-            elif nx == x - 1:    # west
+            elif nx == x - 1:
                 self.grid[y][x] &= ~W
                 self.grid[ny][nx] &= ~E
-            elif ny == y + 1:    # south
+            elif ny == y + 1:
                 self.grid[y][x] &= ~S
                 self.grid[ny][nx] &= ~N
-            elif ny == y - 1:    # north
+            elif ny == y - 1:
                 self.grid[y][x] &= ~N
                 self.grid[ny][nx] &= ~S
 
-            # Recompute path every few steps (balance speed + visual update)
-            if i % 5 == 0:
-                self._update_path_from_grid()
-
-            self.render(stdscr)
+            self.render(stdscr, clear_screen=False)
 
             now = time.monotonic()
             wait = frame_dt - (now - last)
             if wait > 0:
                 time.sleep(wait)
             last = time.monotonic()
+        self.render(stdscr)

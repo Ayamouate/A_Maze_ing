@@ -1,12 +1,12 @@
 # A-Maze-Ing
 
-*This project has been created as part of the 42 curriculum by aymouate, ykoia.*
+*This project has been created as part of the 42 curriculum by aymouate, and ykoia.*
 
 ---
 
 ## Description
 
-**A-Maze-Ing** is a maze generation and visualization tool built in Python. The project generates random mazes using the **Depth-First Search (DFS)** algorithm, finds the shortest path using **Breadth-First Search (BFS)**, and provides an interactive terminal-based display using the **curses** library.
+**A-Maze-Ing** is a maze generation and visualization tool built in Python. The project generates random mazes using **DFS** or **PRIM**, finds the shortest path using **Breadth-First Search (BFS)**, and provides an interactive terminal-based display using the **curses** library.
 
 ### Key Features
 
@@ -14,6 +14,8 @@
 - **42 Pattern**: Embeds a "42" pattern in mazes ≥10x10 (school tribute)
 - **Path Finding**: BFS algorithm to find the shortest path from entry to exit
 - **Interactive Display**: Terminal-based visualization with color cycling
+- **Generation Animation**: Shows maze carving animation at startup and on regeneration
+- **Skip Animation**: Press `space` during carving animation to jump to final maze
 - **Perfect/Imperfect Mazes**: Option to generate perfect mazes (single solution) or imperfect mazes (multiple paths)
 - **Hex Output**: Serializes maze data to a file in hexadecimal format
 
@@ -57,9 +59,10 @@ python3 a_maze_ing.py my_config.txt
 Once the maze is displayed:
 | Key | Action |
 |-----|--------|
-| `p` | Toggle path visibility ON/OFF |
+| `p` | Toggle path visibility ON/OFF (animated reveal when turning ON) |
 | `c` | Cycle through wall colors (Magenta → Blue → Yellow → Cyan → White) |
 | `r` | Regenerate maze with new random seed |
+| `space` | Skip current generation animation |
 | `q` | Quit |
 
 ### Other Commands
@@ -67,7 +70,7 @@ Once the maze is displayed:
 ```bash
 make lint        # Run flake8 and mypy type checking
 make lint-strict # Strict mypy checking
-make clean       # Remove cache files
+make clean       # Remove cache/build files (incl. dist and mazegen.egg-info)
 make debug       # Run with Python debugger
 ```
 
@@ -78,13 +81,12 @@ make debug       # Run with Python debugger
 The configuration file uses a simple `KEY=VALUE` format. Create a `config.txt` file at the project root:
 
 ```plaintext
-WIDTH=20
-HEIGHT=15
-ENTRY=1,1
-EXIT=19,12
+WIDTH=25
+HEiGHT=20
+ENTRY=3,1
+EXIT=15,17
 OUTPUT_FILE=maze.txt
-PERFECT=False
-SEED=42
+PERFECT=True
 ```
 
 ### Required Parameters
@@ -110,6 +112,12 @@ SEED=42
 - Entry and exit must be within maze bounds
 - Entry and exit cannot be the same position
 - Entry and exit cannot overlap with the "42" pattern area (mazes ≥10x10)
+
+### Runtime Notes
+
+- Startup generation animation runs inside curses before controls are active
+- Press `space` during startup/regeneration animation to skip to final maze
+- For mazes smaller than `10x10`, the app prints `Error: maze too small for 42 pattern!` after quitting the UI
 
 ---
 
@@ -180,10 +188,10 @@ Example: `EESSWWSSEEEE` means "go East, East, South, South, West, West, South, S
 
 ## Reusable Code Components
 
-### 1. Maze Generation (`mazegen/maze/dfs_algo.py`)
+### 1. Maze Generation (`mazegen/dfs_algo.py`)
 
 ```python
-from mazegen.maze.dfs_algo import Maze
+from mazegen.dfs_algo import Maze
 
 maze = Maze(width=20, height=15, entry=(0,0), exit=(19,14), seed=42)
 grid = maze.choose_maze_algo(perfect=True)
@@ -191,10 +199,10 @@ grid = maze.choose_maze_algo(perfect=True)
 
 **Reusable for**: Any project needing procedural maze generation
 
-### 2. Path Finding (`mazegen/maze/serializer.py`)
+### 2. Path Finding (`mazegen/serializer.py`)
 
 ```python
-from mazegen.maze.serializer import find_shortest_path
+from mazegen.serializer import find_shortest_path
 
 path = find_shortest_path(grid, entry=(0,0), exit_pos=(19,14))
 # Returns: "EESSWWSSEE..."
@@ -202,10 +210,10 @@ path = find_shortest_path(grid, entry=(0,0), exit_pos=(19,14))
 
 **Reusable for**: Any grid-based pathfinding with wall encoding
 
-### 3. Configuration Parsing (`mazegen/maze/config_parse.py`)
+### 3. Configuration Parsing (`mazegen/config_parse.py`)
 
 ```python
-from mazegen.maze.config_parse import load_config
+from mazegen.config_parse import load_config
 
 config = load_config("config.txt")
 print(config.width, config.height, config.entry)
@@ -213,13 +221,13 @@ print(config.width, config.height, config.entry)
 
 **Reusable for**: Any project needing KEY=VALUE config file parsing with validation
 
-### 4. Interactive Display (`mazegen/maze/display.py`)
+### 4. Interactive Display (`mazegen/display.py`)
 
 ```python
-from mazegen.maze.display import MazeDisplay
+from mazegen.display import MazeDisplay
 
 display = MazeDisplay(grid, entry, exit_pos, path_coords)
-display.run()
+display.run_with_window(stdscr)
 ```
 
 **Reusable for**: Any curses-based grid visualization
@@ -244,6 +252,7 @@ Path colors automatically contrast with walls.
 ### 3. Maze Regeneration
 
 Press `r` to generate a new maze with a random seed while keeping dimensions.
+Regeneration includes wall-carving animation and animated path reveal.
 
 ### 4. Perfect vs Imperfect Mazes
 
@@ -264,12 +273,10 @@ main_Maze/
 ├── README.md              # This file
 └── mazegen/
     ├── __init__.py
-    └── maze/
-        ├── __init__.py
-        ├── config_parse.py   # Configuration parsing & validation
-        ├── dfs_algo.py       # DFS maze generation
-        ├── display.py        # Curses-based visualization
-        └── serializer.py     # Output & BFS pathfinding
+    ├── config_parse.py      # Configuration parsing & validation
+    ├── dfs_algo.py          # DFS/PRIM maze generation
+    ├── display.py           # Curses-based visualization + animation
+    └── serializer.py        # Output + BFS pathfinding
 ```
 
 ---

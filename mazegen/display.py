@@ -479,7 +479,7 @@ class MazeDisplay:
         self.path = []
         self.path_set = set()
 
-        frame_dt = 1 / 60
+        frame_dt = 1 / 120
         last = time.monotonic()
 
         stdscr.nodelay(True)

@@ -361,18 +361,10 @@ class MazeDisplay:
         self.path = full_path
         self.path_set = set()
 
-        frame_dt = 1 / 60
-        last = time.monotonic()
-
         for coord in full_path:
             self.path_set.add(coord)
             self.render(stdscr, clear_screen=False)
-
-            now = time.monotonic()
-            wait = frame_dt - (now - last)
-            if wait > 0:
-                time.sleep(wait)
-            last = time.monotonic()
+            time.sleep(0.03)
 
     def regenerate(self, stdscr: Optional["curses.window"] = None) -> None:
         """Regenerate the maze with a new random seed."""
@@ -464,23 +456,10 @@ class MazeDisplay:
         broken_walls: List[Tuple[int, int, int, int]],
         final_grid: Optional[List[List[int]]] = None,
     ) -> None:
-        """Animate wall carving with reduced frame flicker.
-        Args:
-            stdscr: Curses window object.
-            broken_walls: Ordered list of (x, y, nx, ny) wall-break steps.
-            final_grid: The completed maze grid to restore after animation
-                (handles early skip via space key). If None, the partially
-                animated grid is kept as-is.
-        """
-        self.grid = [
-            [N | E | S | W for _ in range(self.width)]
-            for _ in range(self.height)
-        ]
+        self.grid = [[15 for _ in range(self.width)]
+                     for _ in range(self.height)]
         self.path = []
-        self.path_set = set()
-
-        frame_dt = 1 / 120
-        last = time.monotonic()
+        self.path_set = set()  # clearing old path
 
         stdscr.nodelay(True)
         try:
@@ -504,14 +483,9 @@ class MazeDisplay:
 
                 self.render(stdscr, clear_screen=False)
 
-                now = time.monotonic()
-                wait = frame_dt - (now - last)
-                if wait > 0:
-                    time.sleep(wait)
-                last = time.monotonic()
+                time.sleep(0.02)
         finally:
             stdscr.nodelay(False)
             # Always restore the final correct grid so the path is valid
             if final_grid is not None:
                 self.grid = final_grid
-        self.render(stdscr)

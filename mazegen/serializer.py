@@ -36,7 +36,7 @@ class MazeInfo:
             nbr //= 16
         return result
 
-    def to_hex(self) -> str:
+    def maze_to_hex(self) -> str:
         """Convert the entire maze grid to hexadecimal format.
         Returns:
             Multi-line string with each cell's wall configuration
@@ -62,7 +62,7 @@ class MazeInfo:
             path: Solution path string (directional characters).
         """
 
-        hex_str = self.to_hex()
+        hex_str = self.maze_to_hex()
         with open(self.file_name, "w") as file:
             file.write(hex_str)
             file.write("\n")

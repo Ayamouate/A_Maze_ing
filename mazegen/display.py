@@ -135,6 +135,7 @@ class MazeDisplay:
         """
         if clear_screen:
             stdscr.clear()
+        # current terminal size
         max_y, max_x = stdscr.getmaxyx()
 
         WALL = curses.color_pair(self.color_index)
@@ -456,12 +457,13 @@ class MazeDisplay:
         broken_walls: List[Tuple[int, int, int, int]],
         final_grid: Optional[List[List[int]]] = None,
     ) -> None:
+        """"""
         self.grid = [[15 for _ in range(self.width)]
                      for _ in range(self.height)]
         self.path = []
         self.path_set = set()  # clearing old path
 
-        stdscr.nodelay(True)
+        stdscr.nodelay(True)  # program runs until a key is pressed
         try:
             for x, y, nx, ny in broken_walls:
                 key = stdscr.getch()
@@ -485,7 +487,8 @@ class MazeDisplay:
 
                 time.sleep(0.02)
         finally:
-            stdscr.nodelay(False)
+            stdscr.nodelay(False)  # program stops until a key is pressed
             # Always restore the final correct grid so the path is valid
             if final_grid is not None:
                 self.grid = final_grid
+        self.render(stdscr)
